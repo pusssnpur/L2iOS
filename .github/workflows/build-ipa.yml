@@ -1,0 +1,66 @@
+name: Build L2iOS IPA
+run-name: Build L2iOS IPA (#${{ github.run_number }})
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install build dependencies
+        run: |
+          brew install meson ninja cmake lld
+          echo "/opt/homebrew/opt/lld/bin" >> "$GITHUB_PATH"
+
+      - name: Fetch external dependencies
+        run: |
+          clone_pinned() {
+            local dir="$1" url="$2" sha="$3"
+            if [ ! -d "$dir/.git" ]; then
+              mkdir -p "$dir"
+              git -C "$dir" init
+              git -C "$dir" remote add origin "$url"
+              git -C "$dir" fetch --depth 1 origin "$sha"
+              git -C "$dir" checkout FETCH_HEAD
+            fi
+          }
+          clone_pinned deps/libapps https://github.com/ish-app/libapps b8cacae35e5b11d64bb736a053921c16ca7faf9e
+          clone_pinned deps/libarchive https://github.com/libarchive/libarchive fc6563f5130d8a7ee1fc27c0e55baef35119f26c
+          clone_pinned deps/glslang https://github.com/KhronosGroup/glslang.git a57276bf558f5cf94d3a9854ebdf5a2236849a5a
+          clone_pinned deps/spirv-cross https://github.com/KhronosGroup/SPIRV-Cross.git 2c32b6bf86f3c4a5539aa1f0bacbd59fe61759cf
+
+      - name: Build unsigned IPA with JIT
+        run: LINUXRUNNER_JIT=YES bash scripts/build-ipa.sh --unsigned
+
+      - name: Upload L2iOS IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: L2iOS-unsigned-ipa
+          path: build/releases/*.ipa
+
+      - name: Publish Nightly Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          IPA=$(ls build/releases/*.ipa | head -n 1)
+          if gh release view nightly >/dev/null 2>&1; then
+            gh release delete-asset nightly "$(basename "$IPA")" -y >/dev/null 2>&1 || true
+            gh release upload nightly "$IPA" --clobber
+          else
+            gh release create nightly "$IPA" \
+              --target "${{ github.sha }}" \
+              --title "L2iOS Nightly" \
+              --notes "Latest nightly unsigned IPA build of L2iOS." \
+              --prerelease
+          fi
