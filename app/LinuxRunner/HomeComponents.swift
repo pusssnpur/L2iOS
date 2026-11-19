@@ -385,26 +385,36 @@ struct CatalogDistribution: Identifiable {
     let id: String, name: String, summary: String, detail: String
     let experimental: Bool
     static let all: [CatalogDistribution] = [
-        .init(id: "debian", name: "Debian 13", summary: "Recommended", detail: "Stable, widest app support, all desktops", experimental: false),
-        .init(id: "arch", name: "Arch Linux ARM", summary: "Rolling release", detail: "pacman, X11 and Wayland desktops, KDE Plasma", experimental: false),
+        .init(id: "debian", name: "Debian 13", summary: "Recommended · APT", detail: "Stable, widest app support, all desktops", experimental: false),
+        .init(id: "ubuntu", name: "Ubuntu 24.04", summary: "APT · Canonical", detail: "Official Ubuntu Base ARM64", experimental: true),
+        .init(id: "arch", name: "Arch Linux ARM", summary: "Rolling · pacman", detail: "Rolling release, X11 & Wayland, KDE Plasma", experimental: false),
         .init(id: "fedora", name: "Fedora 44", summary: "DNF userspace", detail: "Lightweight desktop and KDE Plasma", experimental: false),
-        .init(id: "ubuntu", name: "Ubuntu 24.04", summary: "Ubuntu Base · Experimental", detail: "APT, i3 and experimental Ubuntu GNOME", experimental: true),
-        .init(id: "pop", name: "Pop!_OS 24.04", summary: "By System76 · Experimental", detail: "Ubuntu base with Pop!_OS's repository and look", experimental: true),
-        .init(id: "zorin", name: "Zorin OS 18", summary: "Windows-like · Experimental", detail: "Ubuntu base with Zorin OS's repositories and look", experimental: true),
-        .init(id: "void", name: "Void Linux", summary: "Independent · Experimental", detail: "Independent rolling release with xbps; very light", experimental: true),
-        .init(id: "kali", name: "Kali Linux", summary: "Security tools", detail: "Kali's Xfce desktop and tool sets", experimental: false),
-        .init(id: "alpine", name: "Alpine 3.24", summary: "Small and fast", detail: "Mainly for the terminal", experimental: false),
-        .init(id: "steamos", name: "SteamOS ARM64", summary: "Valve SteamFrame image", detail: "Downloads Valve's ARM64 recovery image; not official SteamOS support, no Steam games", experimental: true),
+        .init(id: "opensuse", name: "openSUSE Tumbleweed", summary: "Rolling · zypper", detail: "Official openSUSE ARM64 rolling rootfs", experimental: true),
+        .init(id: "rocky", name: "Rocky Linux 9", summary: "Enterprise · DNF", detail: "RHEL-compatible enterprise ARM64 rootfs", experimental: true),
+        .init(id: "almalinux", name: "AlmaLinux 9", summary: "Enterprise · DNF", detail: "Community-owned RHEL-compatible ARM64", experimental: true),
+        .init(id: "centos", name: "CentOS Stream 9", summary: "Rolling Enterprise · DNF", detail: "Upstream RHEL development branch ARM64", experimental: true),
+        .init(id: "kubuntu", name: "Kubuntu 24.04", summary: "Ubuntu + KDE", detail: "Ubuntu Base with KDE Plasma", experimental: true),
+        .init(id: "xubuntu", name: "Xubuntu 24.04", summary: "Ubuntu + Xfce", detail: "Ubuntu Base with lightweight Xfce", experimental: true),
+        .init(id: "lubuntu", name: "Lubuntu 24.04", summary: "Ubuntu + LXQt", detail: "Ubuntu Base with fast LXQt desktop", experimental: true),
+        .init(id: "pop", name: "Pop!_OS 24.04", summary: "System76 · APT", detail: "Ubuntu base with Pop!_OS repository", experimental: true),
+        .init(id: "zorin", name: "Zorin OS 18", summary: "Windows-like · APT", detail: "Ubuntu base with Zorin OS look", experimental: true),
+        .init(id: "kali", name: "Kali Linux", summary: "Security · APT", detail: "Kali Xfce desktop and security tool sets", experimental: false),
+        .init(id: "void", name: "Void Linux", summary: "Independent · xbps", detail: "Independent rolling release; very light", experimental: true),
+        .init(id: "devuan", name: "Devuan 5", summary: "Init-free · APT", detail: "Debian without systemd (Daedalus ARM64)", experimental: true),
+        .init(id: "gentoo", name: "Gentoo Linux", summary: "Source · Portage", detail: "Gentoo ARM64 OpenRC stage rootfs", experimental: true),
+        .init(id: "oracle", name: "Oracle Linux 9", summary: "Enterprise · DNF", detail: "Oracle Linux 9 ARM64 rootfs", experimental: true),
+        .init(id: "alpine", name: "Alpine 3.24", summary: "Small · APK", detail: "Lightweight musl Linux for terminal", experimental: false),
+        .init(id: "steamos", name: "SteamOS ARM64", summary: "Valve SteamFrame", detail: "Valve ARM64 recovery image (experimental)", experimental: true),
     ]
 }
 
 /// The distribution's own logo (DistroLogos.bundle, see its SOURCES.md) on a
-/// light tile, so cut-out marks (Alpine, Fedora) keep their real colours.
+/// light tile, or an iOS-style squircle badge for additional mainstream distros.
 struct DistroBadge: View {
     let distributionID: String?
     var size: CGFloat = 46
     private static let cache = NSCache<NSString, UIImage>()
-    private var file: String {
+    private var file: String? {
         switch distributionID ?? "alpine" {
         case "debian": return "debian"
         case "arch", "archarm": return "arch"
@@ -416,10 +426,23 @@ struct DistroBadge: View {
         case "zorin": return "zorin"
         case "void": return "void"
         case "opensuse", "opensuse-tumbleweed": return "opensuse"
-        default: return "alpine"
+        case "alpine": return "alpine"
+        default: return nil
+        }
+    }
+    private var customBadge: (String, [Color]) {
+        switch distributionID ?? "" {
+        case "rocky": return ("mountain.2.fill", [Color(red: 0.08, green: 0.72, blue: 0.48), Color(red: 0.04, green: 0.45, blue: 0.30)])
+        case "almalinux": return ("star.circle.fill", [.blue, .indigo])
+        case "centos": return ("square.grid.2x2.fill", [.purple, .indigo])
+        case "devuan": return ("spiral", [.purple, .pink])
+        case "gentoo": return ("sparkles", [.indigo, .purple])
+        case "oracle": return ("circle.hexagongrid.fill", [.red, .orange])
+        default: return ("shippingbox.fill", [.gray, .secondary])
         }
     }
     private var logo: UIImage? {
+        guard let file else { return nil }
         if let image = Self.cache.object(forKey: file as NSString) { return image }
         guard let bundle = Bundle.main.url(forResource: "DistroLogos", withExtension: "bundle"),
               let image = UIImage(contentsOfFile: bundle.appendingPathComponent(file + ".png").path) else { return nil }
@@ -427,14 +450,18 @@ struct DistroBadge: View {
         return image
     }
     var body: some View {
-        RoundedRectangle(cornerRadius: size * 0.28, style: .continuous)
-            .fill(Color(white: 0.96))
-            .frame(width: size, height: size)
-            .overlay {
-                if let logo { Image(uiImage: logo).resizable().interpolation(.high).scaledToFit().padding(size * 0.14) }
-                else { Image(systemName: "shippingbox.fill").foregroundColor(.gray) }
-            }
-            .accessibilityHidden(true)
+        if let logo {
+            RoundedRectangle(cornerRadius: size * 0.225, style: .continuous)
+                .fill(Color(white: 0.96))
+                .frame(width: size, height: size)
+                .overlay {
+                    Image(uiImage: logo).resizable().interpolation(.high).scaledToFit().padding(size * 0.14)
+                }
+                .accessibilityHidden(true)
+        } else {
+            LRIOSIcon(symbol: customBadge.0, colors: customBadge.1, size: size)
+                .accessibilityHidden(true)
+        }
     }
 }
 

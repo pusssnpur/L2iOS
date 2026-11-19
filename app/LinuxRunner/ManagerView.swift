@@ -688,50 +688,106 @@ struct ManagerView: View {
         setupStep = "install"; setup = true
     }
     private var distributions: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 22) {
-                VStack(alignment: .leading, spacing: 12) {
-                    Text("Installed").font(.title3.weight(.semibold))
-                    if manager.environments.isEmpty {
-                        Text("No Linux distribution yet. Choose one below.").font(.subheadline).foregroundColor(.secondary)
-                            .padding(16).frame(maxWidth: .infinity, alignment: .leading)
-                            .background(RoundedRectangle(cornerRadius: 18, style: .continuous).fill(Color(.secondarySystemGroupedBackground)))
-                    }
-                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 300), spacing: 14)], spacing: 14) {
-                        ForEach(manager.environments) { environment in
-                            NavigationLink(destination: environmentDetail(environment)) {
-                                InstalledDistributionCard(name: environment.name, distributionID: environment.flavor ?? environment.distributionID,
-                                    version: environment.rootfsVersion, size: manager.size(environment), desktop: desktopName(environment),
-                                    active: manager.active(environment), nextLaunch: LRRuntimeBridge.nextRootName() == environment.rootfsName && !manager.active(environment))
-                            }
-                            .buttonStyle(HomeTileStyle())
-                            .contextMenu {
-                                if !manager.active(environment) { Button { LRRuntimeBridge.setNextRootName(environment.rootfsName); manager.refresh() } label: { Label("Use on Next Launch", systemImage: "arrow.uturn.right") } }
-                                Button(role: .destructive) { pendingDistributionDeletion = environment } label: { Label("Delete…", systemImage: "trash") }
-                                    .disabled(manager.busy || LRRuntimeBridge.environmentDeletionUnavailableReason(environment.rootfsName) != nil)
+        List {
+            Section("Installed") {
+                if manager.environments.isEmpty {
+                    Text("No Linux distribution yet. Choose one below.")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                }
+                ForEach(manager.environments) { environment in
+                    let isActive = manager.active(environment)
+                    let isNext = LRRuntimeBridge.nextRootName() == environment.rootfsName && !isActive
+                    NavigationLink(destination: environmentDetail(environment)) {
+                        HStack(spacing: 12) {
+                            DistroBadge(distributionID: environment.flavor ?? environment.distributionID, size: 36)
+                            VStack(alignment: .leading, spacing: 2) {
+                                HStack(spacing: 6) {
+                                    Text(environment.name).font(.body.weight(.semibold))
+                                    if isActive { StatusChip(text: "Active", color: .green) }
+                                    else if isNext { StatusChip(text: "Next launch", color: .accentColor) }
+                                }
+                                Text([environment.rootfsVersion, manager.size(environment), desktopName(environment)].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: " · "))
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                                    .lineLimit(1)
                             }
                         }
+                        .padding(.vertical, 2)
+                    }
+                    .contextMenu {
+                        if !isActive { Button { LRRuntimeBridge.setNextRootName(environment.rootfsName); manager.refresh() } label: { Label("Use on Next Launch", systemImage: "arrow.uturn.right") } }
+                        Button(role: .destructive) { pendingDistributionDeletion = environment } label: { Label("Delete…", systemImage: "trash") }
+                            .disabled(manager.busy || LRRuntimeBridge.environmentDeletionUnavailableReason(environment.rootfsName) != nil)
                     }
                 }
-                VStack(alignment: .leading, spacing: 12) {
-                    Text("Add a Distribution").font(.title3.weight(.semibold))
-                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 158), spacing: 14)], spacing: 14) {
-                        ForEach(CatalogDistribution.all) { item in
-                            Button { startSetup(item.id) } label: {
-                                CatalogDistributionCard(item: item, installed: manager.environments.contains { ($0.flavor ?? $0.distributionID) == item.id })
-                            }
-                            .buttonStyle(HomeTileStyle()).disabled(manager.busy).accessibilityIdentifier("Install \(item.name)")
-                        }
-                    }
-                    if manager.busy { ProgressView("Preparing environment…") }
-                }
-                Text("Each distribution keeps its own packages and files. One runs at a time; switching takes effect when L2iOS is reopened.")
-                    .font(.footnote).foregroundColor(.secondary)
             }
-            .padding(.horizontal, 20).padding(.top, 12).padding(.bottom, 96)
-            .frame(maxWidth: 980).frame(maxWidth: .infinity)
+
+            Section {
+                ForEach(CatalogDistribution.all) { item in
+                    let installed = manager.environments.contains { ($0.flavor ?? $0.distributionID) == item.id }
+                    Button { startSetup(item.id) } label: {
+                        HStack(spacing: 12) {
+                            DistroBadge(distributionID: item.id, size: 36)
+                            VStack(alignment: .leading, spacing: 2) {
+                                HStack(spacing: 6) {
+                                    Text(item.name).font(.body.weight(.medium)).foregroundColor(.primary)
+                                    if installed {
+                                        Image(systemName: "checkmark.circle.fill")
+                                            .font(.caption)
+                                            .foregroundColor(.green)
+                                    }
+                                }
+                                Text(item.summary)
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                                    .lineLimit(1)
+                            }
+                            Spacer()
+                            Image(systemName: "plus.circle.fill")
+                                .font(.title3)
+                                .foregroundColor(.accentColor.opacity(0.85))
+                        }
+                        .padding(.vertical, 2)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(manager.busy)
+                    .accessibilityIdentifier("Install \(item.name)")
+                }
+
+                Button { startSetup("custom") } label: {
+                    HStack(spacing: 12) {
+                        LRIOSIcon(symbol: "doc.zipper", colors: [.indigo, .purple], size: 36)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Import Custom Rootfs").font(.body.weight(.medium)).foregroundColor(.primary)
+                            Text("Any ARM64 .tar.gz or .tar.xz archive").font(.caption).foregroundColor(.secondary)
+                        }
+                        Spacer()
+                        Image(systemName: "folder.badge.plus")
+                            .font(.title3)
+                            .foregroundColor(.accentColor.opacity(0.85))
+                    }
+                    .padding(.vertical, 2)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .disabled(manager.busy)
+
+                if manager.busy {
+                    HStack(spacing: 10) {
+                        ProgressView()
+                        Text("Preparing environment…").font(.subheadline).foregroundColor(.secondary)
+                    }
+                }
+            } header: {
+                Text("Add a Distribution (\(CatalogDistribution.all.count))")
+            } footer: {
+                Text("Each distribution keeps its own packages and files. One runs at a time; switching takes effect when L2iOS is reopened.")
+            }
         }
-        .background(Color(.systemGroupedBackground).ignoresSafeArea())
+        .listStyle(.insetGrouped)
+        .background(LRAmbientGlassBackdrop())
         .navigationTitle("Distributions")
         .toolbar { Button { manager.refresh() } label: { Image(systemName: "arrow.clockwise") }.accessibilityLabel("Refresh Distributions") }
     }

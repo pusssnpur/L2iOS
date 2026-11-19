@@ -23,7 +23,9 @@ struct SetupWizardView: View {
     @StateObject private var ubuntu = UbuntuInstaller()
     @StateObject private var voidInstaller = VoidInstaller()
     @StateObject private var steamos = SteamOSInstaller()
+    @StateObject private var mainstream = MainstreamDistroInstaller()
     @State private var steamOSImporter = false
+    @State private var customRootfsImporter = false
     @State private var username = ""
     @State private var password = ""
     @State private var confirmation = ""
@@ -34,20 +36,37 @@ struct SetupWizardView: View {
     @State private var extraDesktops: Set<String> = []
     @State private var chosenDesktop = "linuxrunner"
     private var step: SetupStep { SetupStep(rawValue: stepRaw) ?? .welcome }
+    private var anyInstalling: Bool {
+        working != nil || debian.running || arch.running || fedora.running || kali.running || ubuntu.running || voidInstaller.running || steamos.running || mainstream.running || manager.busy
+    }
 
     var body: some View {
         NavigationView {
             Form { content }
                 .navigationTitle(title)
-                .toolbar { ToolbarItem(placement: .cancellationAction) { Button(step == .done ? "Close" : "Later") { dismiss() }.disabled(working != nil || debian.running || arch.running || fedora.running || kali.running || ubuntu.running || steamos.running || manager.busy) } }
+                .toolbar { ToolbarItem(placement: .cancellationAction) { Button(step == .done ? "Close" : "Later") { dismiss() }.disabled(anyInstalling) } }
         }
         .navigationViewStyle(.stack)
         .overlay(alignment: .bottom) { InstallProgressCard() }
-        .interactiveDismissDisabled(working != nil || debian.running || arch.running || fedora.running || kali.running || ubuntu.running || steamos.running || manager.busy)
+        .interactiveDismissDisabled(anyInstalling)
         .onAppear(perform: resume)
         .fileImporter(isPresented: $steamOSImporter, allowedContentTypes: [.data], allowsMultipleSelection: false) { result in
             switch result {
             case .success(let urls): if let source = urls.first { installSteamOS(from: source) }
+            case .failure(let error): problem = error.localizedDescription
+            }
+        }
+        .fileImporter(isPresented: $customRootfsImporter, allowedContentTypes: [.data, .archive], allowsMultipleSelection: false) { result in
+            switch result {
+            case .success(let urls):
+                if let source = urls.first {
+                    mainstream.importLocalArchive(url: source) { environment in
+                        manager.acceptInstalled(environment)
+                        setupRoot = environment.rootfsName
+                        LRRuntimeBridge.setNextRootName(environment.rootfsName)
+                        stepRaw = (LRRuntimeBridge.isRunning() && LRRuntimeBridge.activeRootName() == environment.rootfsName) ? SetupStep.account.rawValue : SetupStep.relaunch.rawValue
+                    }
+                }
             case .failure(let error): problem = error.localizedDescription
             }
         }
@@ -68,8 +87,29 @@ struct SetupWizardView: View {
             if !manager.environments.isEmpty { Section { Text("Configure an existing environment or install another distribution. Your files and accounts are preserved.").font(.footnote) } }
             Section { Button("Continue") { stepRaw = SetupStep.distribution.rawValue } }
         case .distribution:
-            Section(footer: Text("Debian is recommended. Arch Linux ARM is a rolling release with pacman and experimental X11/Wayland desktops. Fedora offers experimental DNF userspace with a lightweight X11 desktop. Ubuntu Base is experimental and uses APT. Kali Linux is the official Kali userspace with its Xfce desktop and optional standard tools; kernel-level features such as monitor-mode Wi-Fi, raw packet capture and kernel modules are not available on iOS. Alpine is small and mainly for the terminal. SteamOS ARM64 is experimental: it is installed from Valve's SteamFrame recovery image (not official SteamOS support; Steam games are not supported). Desktop compatibility varies.")) {
-                Picker("Distribution", selection: $distribution) { Text("Debian GNU/Linux 13 (ARM64) — recommended").tag("debian"); Text("Arch Linux ARM (ARM64)").tag("arch"); Text("Fedora Linux 44 (ARM64)").tag("fedora"); Text("Ubuntu \(UbuntuImage.version) (ARM64) — experimental").tag("ubuntu"); Text("Pop!_OS 24.04 (ARM64) — experimental").tag("pop"); Text("Zorin OS 18 (ARM64) — experimental").tag("zorin"); Text("Kubuntu 24.04 (ARM64) — experimental").tag("kubuntu"); Text("Xubuntu 24.04 (ARM64) — experimental").tag("xubuntu"); Text("Lubuntu 24.04 (ARM64) — experimental").tag("lubuntu"); Text("Void Linux (ARM64) — experimental").tag("void"); Text("Kali Linux \(KaliImage.version) (ARM64)").tag("kali"); Text("Alpine Linux 3.24 (ARM64)").tag("alpine"); Text("SteamOS ARM64 — experimental").tag("steamos") }.pickerStyle(.inline).labelsHidden()
+            Section(footer: Text("Debian is recommended. Ubuntu, Fedora, Arch, Kali, openSUSE, Rocky, AlmaLinux, CentOS, Devuan, Gentoo, Oracle, Void, Alpine, and SteamOS are supported on ARM64.")) {
+                Picker("Distribution", selection: $distribution) {
+                    Text("Debian GNU/Linux 13 (ARM64) — recommended").tag("debian")
+                    Text("Ubuntu \(UbuntuImage.version) (ARM64)").tag("ubuntu")
+                    Text("Arch Linux ARM (ARM64)").tag("arch")
+                    Text("Fedora Linux 44 (ARM64)").tag("fedora")
+                    Text("openSUSE Tumbleweed (ARM64)").tag("opensuse")
+                    Text("Rocky Linux 9 (ARM64)").tag("rocky")
+                    Text("AlmaLinux 9 (ARM64)").tag("almalinux")
+                    Text("CentOS Stream 9 (ARM64)").tag("centos")
+                    Text("Kubuntu 24.04 (ARM64)").tag("kubuntu")
+                    Text("Xubuntu 24.04 (ARM64)").tag("xubuntu")
+                    Text("Lubuntu 24.04 (ARM64)").tag("lubuntu")
+                    Text("Pop!_OS 24.04 (ARM64)").tag("pop")
+                    Text("Zorin OS 18 (ARM64)").tag("zorin")
+                    Text("Kali Linux \(KaliImage.version) (ARM64)").tag("kali")
+                    Text("Void Linux (ARM64)").tag("void")
+                    Text("Devuan 5 Daedalus (ARM64)").tag("devuan")
+                    Text("Gentoo Linux (ARM64)").tag("gentoo")
+                    Text("Oracle Linux 9 (ARM64)").tag("oracle")
+                    Text("Alpine Linux 3.24 (ARM64)").tag("alpine")
+                    Text("SteamOS ARM64").tag("steamos")
+                }.pickerStyle(.inline).labelsHidden()
             }
             let installed = manager.environments.filter { ($0.distributionID ?? "alpine") == distribution }
             if !installed.isEmpty {
@@ -89,7 +129,7 @@ struct SetupWizardView: View {
         case .desktop: desktop
         case .done:
             Section { Label("Linux is ready", systemImage: "checkmark.circle.fill").foregroundStyle(.green)
-                Text("Add applications any time from Packages › App Catalog.").font(.footnote).foregroundStyle(.secondary) }
+                Text("Add applications any time from the App Store tab.").font(.footnote).foregroundStyle(.secondary) }
             Section { Button { stepRaw = SetupStep.welcome.rawValue; setupRoot = ""; dismiss(); openDesktop() } label: { Label("Open Desktop", systemImage: "desktopcomputer").font(.headline) }.disabled(!LRRuntimeBridge.isRunning()) }
         }
         if let working { Section { HStack(spacing: 12) { ProgressView(); Text(working) } } }
@@ -101,11 +141,12 @@ struct SetupWizardView: View {
         let manifest = try? DebianManifest.load()
         let steamManifest = try? SteamOSManifest.load()
         let alpineBytes = Int64((try? Bundle.main.url(forResource: "root", withExtension: "tar.gz")?.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0)
-        let download = distribution == "debian" ? (manifest?.downloadBytes ?? 0) : distribution == "fedora" ? FedoraImage.bytes : distribution == "kali" ? KaliImage.bytes : ["ubuntu", "pop", "zorin"].contains(distribution) ? UbuntuImage.bytes : distribution == "void" ? VoidImage.bytes : 0
+        let ubuntuFlavors = ["ubuntu", "pop", "zorin", "kubuntu", "xubuntu", "lubuntu"]
+        let download = distribution == "debian" ? (manifest?.downloadBytes ?? 0) : distribution == "fedora" ? FedoraImage.bytes : distribution == "kali" ? KaliImage.bytes : ubuntuFlavors.contains(distribution) ? UbuntuImage.bytes : distribution == "void" ? VoidImage.bytes : 0
         let installed = distribution == "debian" ? (manifest?.installedBytes ?? 0) : alpineBytes * 3
         Section("Storage") {
-            row("Download", distribution == "steamos" ? (steamManifest.flatMap { SteamOSInstaller.downloadedImage($0) } != nil ? "Already downloaded" : ByteCountFormatter.string(fromByteCount: steamManifest?.source?.bytes ?? 0, countStyle: .file) + " from Valve") : distribution == "arch" ? "Calculated from the signed package selection" : ["debian", "fedora", "kali", "ubuntu", "pop", "zorin", "void"].contains(distribution) ? ByteCountFormatter.string(fromByteCount: download, countStyle: .file) : "None (included in the app)")
-            row(distribution == "debian" || distribution == "steamos" ? "Installed size" : "Installed size (estimate)", distribution == "steamos" ? ByteCountFormatter.string(fromByteCount: steamManifest?.installedBytes ?? 0, countStyle: .file) : distribution == "arch" ? "At least 1.5 GB free for base installation" : distribution == "void" ? "At least 1.5 GB free for base installation" : distribution == "fedora" || ["ubuntu", "pop", "zorin"].contains(distribution) ? "At least 2 GB free for base installation" : distribution == "kali" ? "About 0.9 GB base; desktop about 2 GB more; standard tools about 6 GB more" : ByteCountFormatter.string(fromByteCount: installed, countStyle: .file))
+            row("Download", distribution == "steamos" ? (steamManifest.flatMap { SteamOSInstaller.downloadedImage($0) } != nil ? "Already downloaded" : ByteCountFormatter.string(fromByteCount: steamManifest?.source?.bytes ?? 0, countStyle: .file) + " from Valve") : distribution == "arch" ? "Calculated from the signed package selection" : MainstreamDistroSpec.spec(for: distribution) != nil ? "Fetched from official ARM64 mirror" : (["debian", "fedora", "kali", "void"] + ubuntuFlavors).contains(distribution) ? ByteCountFormatter.string(fromByteCount: download, countStyle: .file) : "None (included in the app)")
+            row(distribution == "debian" || distribution == "steamos" ? "Installed size" : "Installed size (estimate)", distribution == "steamos" ? ByteCountFormatter.string(fromByteCount: steamManifest?.installedBytes ?? 0, countStyle: .file) : distribution == "arch" ? "At least 1.5 GB free for base installation" : distribution == "void" ? "At least 1.5 GB free for base installation" : (distribution == "fedora" || ubuntuFlavors.contains(distribution) || MainstreamDistroSpec.spec(for: distribution) != nil) ? "At least 2 GB free for base installation" : distribution == "kali" ? "About 0.9 GB base; desktop about 2 GB more; standard tools about 6 GB more" : ByteCountFormatter.string(fromByteCount: installed, countStyle: .file))
             row("Available", ByteCountFormatter.string(fromByteCount: free, countStyle: .file))
         }
         if distribution == "debian" {
@@ -132,19 +173,30 @@ struct SetupWizardView: View {
                 else { Button("Install Kali Linux") { startInstall() }.disabled(free < Int64(2_000_000_000)) }
                 if let failure = kali.failure { Text(failure).foregroundStyle(.red); Button("Try Again") { startInstall() } }
             } footer: { Text("Kali's official ARM64 root filesystem (\(KaliImage.version)), checked against its published SHA-256; packages come from Kali's signed archive. The image's preset root and kali passwords are locked at first start; you create your own account next. Runs with L2iOS, without a Linux kernel or systemd.") }
-        } else if ["ubuntu", "pop", "zorin"].contains(distribution) {
+        } else if ubuntuFlavors.contains(distribution) {
             let flavor = UbuntuFlavor(rawValue: distribution)
             Section {
                 if ubuntu.running { Text(ubuntu.message); ProgressView(value: ubuntu.fraction); Button("Cancel", role: .destructive) { ubuntu.cancel() } }
                 else { Button("Install \(flavor?.name ?? "Ubuntu")") { startInstall() }.disabled(free < Int64(2_000_000_000)) }
                 if let failure = ubuntu.failure { Text(failure).foregroundStyle(.red); Button("Try Again") { startInstall() } }
-            } footer: { Text(flavor.map { "\($0.name) \($0.version) is Ubuntu 24.04 with \($0.vendor) on top. L2iOS installs Canonical's official Ubuntu Base ARM64 (verified against its signed checksum), then adds \($0.vendor) (verified with its signing key) during desktop setup. Experimental; physical-device compatibility requires further testing." } ?? "Official Ubuntu Base ARM64, verified against Canonical's signed checksum. Experimental; desktop and physical-device compatibility require further testing.") }
+            } footer: { Text(flavor.map { "\($0.name) \($0.version) is Ubuntu 24.04 with \($0.vendor) on top. L2iOS installs Canonical's official Ubuntu Base ARM64 (verified against its signed checksum), then adds \($0.vendor) during desktop setup." } ?? "Official Ubuntu Base ARM64, verified against Canonical's signed checksum.") }
         } else if distribution == "void" {
             Section {
                 if voidInstaller.running { Text(voidInstaller.message); ProgressView(value: voidInstaller.fraction); Button("Cancel", role: .destructive) { voidInstaller.cancel() } }
                 else { Button("Install Void Linux") { startInstall() }.disabled(free < Int64(1_500_000_000)) }
                 if let failure = voidInstaller.failure { Text(failure).foregroundStyle(.red); Button("Try Again") { startInstall() } }
-            } footer: { Text("Void Linux's official ARM64 ROOTFS (\(VoidImage.version)), checked against Void's signed checksum; packages come from Void's signed xbps repositories. The image's preset root password is locked at first start; you create your own account next. Runs with L2iOS, without a Linux kernel or runit.") }
+            } footer: { Text("Void Linux's official ARM64 ROOTFS (\(VoidImage.version)), checked against Void's signed checksum; packages come from Void's signed xbps repositories.") }
+        } else if let spec = MainstreamDistroSpec.spec(for: distribution) {
+            Section {
+                if mainstream.running {
+                    Text(mainstream.message)
+                    ProgressView(value: mainstream.fraction)
+                    Button("Cancel", role: .destructive) { mainstream.cancel() }
+                } else {
+                    Button("Install \(spec.displayName)") { startInstall() }.disabled(free < Int64(1_500_000_000))
+                }
+                if let failure = mainstream.failure { Text(failure).foregroundStyle(.red); Button("Try Again") { startInstall() } }
+            } footer: { Text("Downloads the latest official \(spec.displayName) ARM64 rootfs from Linux Containers (images.linuxcontainers.org), verifies its published SHA-256 checksum, and imports it into an isolated environment.") }
         } else if distribution == "steamos" {
             Section {
                 Text(steamos.message)
@@ -165,10 +217,21 @@ struct SetupWizardView: View {
                 }
                 if let failure = steamos.failure { Text(failure).foregroundStyle(.red) }
                 if steamManifest == nil { Text("This build has no supported SteamOS manifest.").foregroundStyle(.secondary) }
-            } footer: { Text("Downloads Valve's SteamFrame recovery image from Valve's server, checks its published SHA-256, and installs its ARM64 system with a terminal and the Plasma X11 desktop. Two display packages (x11vnc, libvncserver) come from Arch Linux ARM with pinned checksums. The download is removed after installation. Keep L2iOS open while it installs.") }
+            } footer: { Text("Downloads Valve's SteamFrame recovery image from Valve's server, checks its published SHA-256, and installs its ARM64 system with a terminal and the Plasma X11 desktop.") }
         } else if distribution == "alpine" {
             Section { if manager.busy { ProgressView("Unpacking Alpine Linux…") } else { Button("Install Alpine") { startInstall() } }
                 if let error = manager.error { Text(error).foregroundStyle(.red) } }
+        } else {
+            Section {
+                if mainstream.running {
+                    Text(mainstream.message)
+                    ProgressView(value: mainstream.fraction)
+                    Button("Cancel", role: .destructive) { mainstream.cancel() }
+                } else {
+                    Button("Choose ARM64 Rootfs Archive (.tar.gz / .tar.xz)…") { customRootfsImporter = true }
+                }
+                if let failure = mainstream.failure { Text(failure).foregroundStyle(.red) }
+            } footer: { Text("Import any ARM64 Linux rootfs archive from the Files app.") }
         }
     }
 
@@ -293,7 +356,7 @@ struct SetupWizardView: View {
     }
 
     private func startInstall() {
-        guard !debian.running, !arch.running, !fedora.running, !kali.running, !ubuntu.running, !steamos.running, !manager.busy else { return }
+        guard !anyInstalling else { return }
         problem = nil
         let known = Set(manager.environments.map(\.rootfsName))
         let finish: (String) -> Void = { root in
@@ -308,11 +371,13 @@ struct SetupWizardView: View {
             fedora.install { environment in manager.acceptInstalled(environment); finish(environment.rootfsName) }
         } else if distribution == "kali" {
             kali.install { environment in manager.acceptInstalled(environment); finish(environment.rootfsName) }
-        } else if ["ubuntu", "pop", "zorin"].contains(distribution) {
+        } else if ["ubuntu", "pop", "zorin", "kubuntu", "xubuntu", "lubuntu"].contains(distribution) {
             ubuntu.flavor = UbuntuFlavor(rawValue: distribution)
             ubuntu.install { environment in manager.acceptInstalled(environment); finish(environment.rootfsName) }
         } else if distribution == "void" {
             voidInstaller.install { environment in manager.acceptInstalled(environment); finish(environment.rootfsName) }
+        } else if let spec = MainstreamDistroSpec.spec(for: distribution) {
+            mainstream.install(spec: spec) { environment in manager.acceptInstalled(environment); finish(environment.rootfsName) }
         } else if distribution == "alpine" {
             manager.error = nil; manager.create(name: "Alpine Linux")
             Task { @MainActor in
@@ -519,3 +584,192 @@ enum DesktopCatalog {
         }
     }
 }
+
+struct MainstreamDistroSpec {
+    let id: String
+    let displayName: String
+    let lxcDistro: String
+    let lxcRelease: String
+    let lxcVariant: String
+    let distributionID: String
+    let packageManager: String
+    let version: String
+
+    static func spec(for id: String) -> MainstreamDistroSpec? {
+        switch id {
+        case "opensuse":
+            return MainstreamDistroSpec(id: "opensuse", displayName: "openSUSE Tumbleweed", lxcDistro: "opensuse", lxcRelease: "tumbleweed", lxcVariant: "default", distributionID: "opensuse", packageManager: "zypper", version: "Tumbleweed")
+        case "rocky":
+            return MainstreamDistroSpec(id: "rocky", displayName: "Rocky Linux 9", lxcDistro: "rockylinux", lxcRelease: "9", lxcVariant: "default", distributionID: "fedora", packageManager: "dnf", version: "9")
+        case "almalinux":
+            return MainstreamDistroSpec(id: "almalinux", displayName: "AlmaLinux 9", lxcDistro: "almalinux", lxcRelease: "9", lxcVariant: "default", distributionID: "fedora", packageManager: "dnf", version: "9")
+        case "centos":
+            return MainstreamDistroSpec(id: "centos", displayName: "CentOS Stream 9", lxcDistro: "centos", lxcRelease: "9-Stream", lxcVariant: "default", distributionID: "fedora", packageManager: "dnf", version: "9-Stream")
+        case "devuan":
+            return MainstreamDistroSpec(id: "devuan", displayName: "Devuan 5 Daedalus", lxcDistro: "devuan", lxcRelease: "daedalus", lxcVariant: "default", distributionID: "debian", packageManager: "apt", version: "5")
+        case "gentoo":
+            return MainstreamDistroSpec(id: "gentoo", displayName: "Gentoo Linux", lxcDistro: "gentoo", lxcRelease: "current", lxcVariant: "openrc", distributionID: "gentoo", packageManager: "emerge", version: "rolling")
+        case "oracle":
+            return MainstreamDistroSpec(id: "oracle", displayName: "Oracle Linux 9", lxcDistro: "oracle", lxcRelease: "9", lxcVariant: "default", distributionID: "fedora", packageManager: "dnf", version: "9")
+        default:
+            return nil
+        }
+    }
+}
+
+private final class MainstreamCancellation: @unchecked Sendable {
+    private let lock = NSLock()
+    private var stopped = false
+    func cancel() { lock.lock(); stopped = true; lock.unlock() }
+    func check() -> Bool { lock.lock(); defer { lock.unlock() }; return stopped }
+}
+
+@MainActor final class MainstreamDistroInstaller: ObservableObject {
+    @Published var message = "Ready"
+    @Published var fraction = 0.0 { didSet { if let longTask { LongTaskCenter.shared.update(longTask, detail: message, fraction: fraction) } } }
+    private var longTask: String?
+    @Published var running = false {
+        didSet {
+            if running != oldValue {
+                running ? LRRuntimeBridge.beginAwake("mainstream-install") : LRRuntimeBridge.endAwake("mainstream-install")
+                if running { longTask = LongTaskCenter.shared.begin(title: "Installing Linux", detail: message, userStarted: true) }
+                else if let token = longTask { longTask = nil; LongTaskCenter.shared.end(token, success: failure == nil, message: failure ?? message) }
+            }
+        }
+    }
+    @Published var failure: String?
+    private var operation: Task<Void, Never>?
+    private var cancellation = MainstreamCancellation()
+
+    func cancel() { cancellation.cancel(); operation?.cancel() }
+
+    func install(spec: MainstreamDistroSpec, completion: @escaping (LinuxEnvironment) -> Void) {
+        guard !running else { return }
+        running = true; failure = nil; fraction = 0; cancellation = MainstreamCancellation()
+        let token = cancellation
+        message = "Fetching \(spec.displayName) mirror index…"
+        operation = Task {
+            defer { running = false }
+            do {
+                let indexURL = URL(string: "https://images.linuxcontainers.org/meta/1.0/index-user")!
+                let (indexData, indexResp) = try await URLSession.shared.data(from: indexURL)
+                guard (indexResp as? HTTPURLResponse)?.statusCode == 200,
+                      let indexText = String(data: indexData, encoding: .utf8) else {
+                    throw NSError(domain: "L2iOS", code: 1, userInfo: [NSLocalizedDescriptionKey: "Could not reach official ARM64 image index."])
+                }
+                let matches = indexText.components(separatedBy: .newlines).compactMap { line -> String? in
+                    let cols = line.components(separatedBy: ";")
+                    guard cols.count >= 6,
+                          cols[0] == spec.lxcDistro,
+                          cols[1] == spec.lxcRelease,
+                          cols[2] == "arm64",
+                          cols[3] == spec.lxcVariant else { return nil }
+                    return cols[5]
+                }
+                guard let path = matches.last else {
+                    throw NSError(domain: "L2iOS", code: 2, userInfo: [NSLocalizedDescriptionKey: "No ARM64 build found for \(spec.displayName) in mirror index."])
+                }
+                let baseURL = "https://images.linuxcontainers.org" + (path.hasSuffix("/") ? path : path + "/")
+                message = "Verifying \(spec.displayName) checksum…"
+                fraction = 0.08
+                let (sumData, _) = try await URLSession.shared.data(from: URL(string: baseURL + "SHA256SUMS")!)
+                let sumText = String(data: sumData, encoding: .utf8) ?? ""
+                let expectedSHA = sumText.components(separatedBy: .newlines).compactMap { line -> String? in
+                    let parts = line.split(whereSeparator: \.isWhitespace)
+                    guard parts.count >= 2, parts[1].hasSuffix("rootfs.tar.xz") else { return nil }
+                    return String(parts[0]).lowercased()
+                }.first
+
+                message = "Downloading \(spec.displayName) ARM64 rootfs…"
+                fraction = 0.15
+                let (downloaded, dlResp) = try await URLSession.shared.download(from: URL(string: baseURL + "rootfs.tar.xz")!)
+                defer { try? FileManager.default.removeItem(at: downloaded) }
+                guard (dlResp as? HTTPURLResponse)?.statusCode == 200 else {
+                    throw NSError(domain: "L2iOS", code: 3, userInfo: [NSLocalizedDescriptionKey: "Download failed for \(spec.displayName)."])
+                }
+                if token.check() { throw CancellationError() }
+
+                message = "Checking SHA-256 integrity…"
+                fraction = 0.55
+                let actualSHA = try DebianInstaller.sha256(downloaded)
+                if let expectedSHA, expectedSHA != actualSHA {
+                    throw NSError(domain: "L2iOS", code: 4, userInfo: [NSLocalizedDescriptionKey: "SHA-256 mismatch for \(spec.displayName)."])
+                }
+
+                let root = UUID().uuidString.lowercased()
+                message = "Importing \(spec.displayName) filesystem…"
+                let metadata: [String: String] = [
+                    "distributionID": spec.distributionID,
+                    "distribution": spec.displayName,
+                    "flavor": spec.id,
+                    "version": spec.version,
+                    "packageManager": spec.packageManager,
+                    "defaultShell": "/bin/bash"
+                ]
+                try await Task.detached(priority: .utility) {
+                    try LRRuntimeBridge.importVerifiedEnvironment(downloaded, root: root, sha256: actualSHA, metadata: metadata, progress: { value, _ in
+                        Task { @MainActor in self.fraction = 0.6 + value * 0.4 }
+                    }, cancel: { token.check() })
+                }.value
+
+                var env = LinuxEnvironment(name: spec.displayName, rootfsName: root)
+                env.distribution = spec.displayName
+                env.distributionID = spec.distributionID
+                env.flavor = spec.id
+                env.packageManager = spec.packageManager
+                env.rootfsVersion = spec.version
+                env.defaultShell = "/bin/bash"
+                env.installationState = "Imported"
+                env.guiAvailability = "Not installed"
+                env.desktopAvailability = "Not installed"
+                completion(env)
+                message = "Imported \(spec.displayName)."
+                fraction = 1.0
+            } catch {
+                failure = (error is CancellationError || token.check()) ? "Installation cancelled." : error.localizedDescription
+            }
+        }
+    }
+
+    func importLocalArchive(url: URL, completion: @escaping (LinuxEnvironment) -> Void) {
+        guard !running else { return }
+        running = true; failure = nil; fraction = 0.1; cancellation = MainstreamCancellation()
+        let token = cancellation
+        let name = url.deletingPathExtension().deletingPathExtension().lastPathComponent
+        message = "Importing \(name)…"
+        operation = Task {
+            defer { running = false }
+            do {
+                let accessed = url.startAccessingSecurityScopedResource()
+                defer { if accessed { url.stopAccessingSecurityScopedResource() } }
+                let sha = try DebianInstaller.sha256(url)
+                let root = UUID().uuidString.lowercased()
+                let metadata: [String: String] = [
+                    "distributionID": "debian",
+                    "distribution": name.isEmpty ? "Custom Linux" : name,
+                    "version": "custom",
+                    "packageManager": "sh",
+                    "defaultShell": "/bin/sh"
+                ]
+                try await Task.detached(priority: .utility) {
+                    try LRRuntimeBridge.importVerifiedEnvironment(url, root: root, sha256: sha, metadata: metadata, progress: { value, _ in
+                        Task { @MainActor in self.fraction = 0.2 + value * 0.8 }
+                    }, cancel: { token.check() })
+                }.value
+                var env = LinuxEnvironment(name: name.isEmpty ? "Custom Linux" : name, rootfsName: root)
+                env.distribution = env.name
+                env.distributionID = "debian"
+                env.packageManager = "sh"
+                env.rootfsVersion = "custom"
+                env.defaultShell = "/bin/sh"
+                env.installationState = "Imported"
+                completion(env)
+                message = "Imported \(env.name)."
+                fraction = 1.0
+            } catch {
+                failure = error.localizedDescription
+            }
+        }
+    }
+}
+
