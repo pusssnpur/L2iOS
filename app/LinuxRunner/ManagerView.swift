@@ -418,6 +418,8 @@ struct ManagerView: View {
     @State private var pendingDistributionDeletion: LinuxEnvironment?
     @State private var showDetail = false
     @State private var showFiles = false
+    @State private var distroSearch = ""
+    @State private var distroFamily = "All"
     @Environment(\.scenePhase) private var phase
 
     var body: some View {
@@ -427,7 +429,9 @@ struct ManagerView: View {
             NavigationView { AppStoreView(manager: manager, run: run) }.navigationViewStyle(.stack)
                 .tabItem { Label("App Store", systemImage: "square.grid.2x2.fill") }.tag(1)
             NavigationView { distributions }.navigationViewStyle(.stack)
-                .tabItem { Label("Distributions", systemImage: "cylinder.split.1x2.fill") }.tag(2)
+                .tabItem { Label("Distros", systemImage: "cylinder.split.1x2.fill") }.tag(2)
+            NavigationView { toolbox }.navigationViewStyle(.stack)
+                .tabItem { Label("Toolbox", systemImage: "wrench.and.screwdriver.fill") }.tag(4)
             NavigationView { preferences }.navigationViewStyle(.stack)
                 .tabItem { Label("Settings", systemImage: "switch.2") }.tag(3)
         }
@@ -592,6 +596,42 @@ struct ManagerView: View {
                         .lrLiquidGlass(cornerRadius: 16, tint: .orange)
                 }
 
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 10) {
+                        NavigationLink(destination: DevStacksView()) {
+                            Label("Dev Stacks", systemImage: "shippingbox.fill")
+                                .font(.caption.weight(.semibold))
+                                .padding(.horizontal, 12).padding(.vertical, 8)
+                                .lrLiquidGlassCapsule(interactive: true, tint: .blue)
+                        }.buttonStyle(.plain)
+                        NavigationLink(destination: ServicesManagerView()) {
+                            Label("Servers", systemImage: "server.rack")
+                                .font(.caption.weight(.semibold))
+                                .padding(.horizontal, 12).padding(.vertical, 8)
+                                .lrLiquidGlassCapsule(interactive: true, tint: .teal)
+                        }.buttonStyle(.plain)
+                        NavigationLink(destination: NetworkToolsView()) {
+                            Label("Network", systemImage: "network")
+                                .font(.caption.weight(.semibold))
+                                .padding(.horizontal, 12).padding(.vertical, 8)
+                                .lrLiquidGlassCapsule(interactive: true, tint: .green)
+                        }.buttonStyle(.plain)
+                        NavigationLink(destination: ClipboardBridgeView()) {
+                            Label("Clipboard", systemImage: "doc.on.clipboard.fill")
+                                .font(.caption.weight(.semibold))
+                                .padding(.horizontal, 12).padding(.vertical, 8)
+                                .lrLiquidGlassCapsule(interactive: true, tint: .indigo)
+                        }.buttonStyle(.plain)
+                        NavigationLink(destination: SystemCleanerView()) {
+                            Label("Cleaner", systemImage: "sparkles")
+                                .font(.caption.weight(.semibold))
+                                .padding(.horizontal, 12).padding(.vertical, 8)
+                                .lrLiquidGlassCapsule(interactive: true, tint: .orange)
+                        }.buttonStyle(.plain)
+                    }
+                    .padding(.vertical, 2)
+                }
+
                 VStack(spacing: 12) {
                     HStack(spacing: 12) {
                         if let environment = activeEnvironment {
@@ -687,6 +727,15 @@ struct ManagerView: View {
         UserDefaults.standard.set(distribution, forKey: "LinuxRunnerSetup.distribution")
         setupStep = "install"; setup = true
     }
+    private var filteredCatalogDistributions: [CatalogDistribution] {
+        CatalogDistribution.all.filter { item in
+            let matchesFamily = distroFamily == "All" || item.family == distroFamily
+            let q = distroSearch.trimmingCharacters(in: .whitespacesAndNewlines)
+            let matchesQuery = q.isEmpty || item.name.localizedCaseInsensitiveContains(q) || item.summary.localizedCaseInsensitiveContains(q) || item.detail.localizedCaseInsensitiveContains(q)
+            return matchesFamily && matchesQuery
+        }
+    }
+
     private var distributions: some View {
         List {
             Section("Installed") {
@@ -724,7 +773,27 @@ struct ManagerView: View {
             }
 
             Section {
-                ForEach(CatalogDistribution.all) { item in
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        ForEach(["All", "Debian / Ubuntu", "RHEL / Fedora", "Rolling", "Lightweight"], id: \.self) { fam in
+                            let selected = distroFamily == fam
+                            Button {
+                                withAnimation(.easeInOut(duration: 0.15)) { distroFamily = fam }
+                            } label: {
+                                Text(fam)
+                                    .font(.caption.weight(.semibold))
+                                    .foregroundColor(selected ? .white : .primary)
+                                    .padding(.horizontal, 12).padding(.vertical, 6)
+                                    .background(Capsule().fill(selected ? Color.accentColor : Color.clear))
+                                    .lrLiquidGlassCapsule(interactive: true, tint: selected ? .accentColor : nil)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                    .padding(.vertical, 4)
+                }
+
+                ForEach(filteredCatalogDistributions) { item in
                     let installed = manager.environments.contains { ($0.flavor ?? $0.distributionID) == item.id }
                     Button { startSetup(item.id) } label: {
                         HStack(spacing: 12) {
@@ -781,15 +850,78 @@ struct ManagerView: View {
                     }
                 }
             } header: {
-                Text("Add a Distribution (\(CatalogDistribution.all.count))")
+                Text("Add a Distribution (\(filteredCatalogDistributions.count))")
             } footer: {
                 Text("Each distribution keeps its own packages and files. One runs at a time; switching takes effect when L2iOS is reopened.")
             }
         }
         .listStyle(.insetGrouped)
+        .searchable(text: $distroSearch, prompt: "Search \(CatalogDistribution.all.count) distributions")
         .background(LRAmbientGlassBackdrop())
         .navigationTitle("Distributions")
         .toolbar { Button { manager.refresh() } label: { Image(systemName: "arrow.clockwise") }.accessibilityLabel("Refresh Distributions") }
+    }
+
+    private var toolbox: some View {
+        List {
+            Section {
+                HStack(spacing: 14) {
+                    LRIOSIcon(symbol: "wrench.and.screwdriver.fill", colors: [.blue, .indigo], size: 48)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("L2iOS Power Toolbox").font(.headline)
+                        Text("1-tap dev stacks, servers, network & system utilities").font(.caption).foregroundColor(.secondary)
+                    }
+                }
+                .padding(.vertical, 4)
+            }
+
+            Section("Developer & Provisioning") {
+                NavigationLink(destination: DevStacksView()) {
+                    SettingsLabel("1-Tap Dev Stacks", "shippingbox.fill", .blue)
+                }
+                NavigationLink(destination: QuickSnippetsView()) {
+                    SettingsLabel("Command Snippets", "text.badge.plus", .indigo)
+                }
+                NavigationLink(destination: ShellProfileView()) {
+                    SettingsLabel("Shell & Env Editor (~/.profile)", "terminal.fill", .purple)
+                }
+            }
+
+            Section("Servers & Networking") {
+                NavigationLink(destination: ServicesManagerView()) {
+                    SettingsLabel("Services & Quick Servers", "server.rack", .teal)
+                }
+                NavigationLink(destination: NetworkToolsView()) {
+                    SettingsLabel("Network & Port Inspector", "network", .green)
+                }
+                NavigationLink(destination: ModesView()) {
+                    SettingsLabel("L2iOS Modes (Agent · RDP · SSH)", "sparkles", .cyan)
+                }
+            }
+
+            Section("System & Utilities") {
+                NavigationLink(destination: LiveMonitorView()) {
+                    SettingsLabel("Live System Monitor", "waveform.path.ecg", .mint)
+                }
+                Button { showTaskManager = true } label: {
+                    SettingsLabel("Process Task Manager", "gauge.high", .orange)
+                }
+                .foregroundColor(.primary)
+                .disabled(!LRRuntimeBridge.isRunning())
+                NavigationLink(destination: ClipboardBridgeView()) {
+                    SettingsLabel("iOS ↔ Linux Clipboard Bridge", "doc.on.clipboard.fill", .blue)
+                }
+                NavigationLink(destination: SystemCleanerView()) {
+                    SettingsLabel("System Cleaner & Cache", "trash.fill", .red)
+                }
+                NavigationLink(destination: GuestCrashListView()) {
+                    SettingsLabel("Crash & Diagnostics Center", "bolt.shield.fill", .pink)
+                }
+            }
+        }
+        .listStyle(.insetGrouped)
+        .background(LRAmbientGlassBackdrop())
+        .navigationTitle("Toolbox")
     }
     private var appVersion: String {
         let info = Bundle.main.infoDictionary

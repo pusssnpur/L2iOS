@@ -599,18 +599,38 @@ struct MainstreamDistroSpec {
         switch id {
         case "opensuse":
             return MainstreamDistroSpec(id: "opensuse", displayName: "openSUSE Tumbleweed", lxcDistro: "opensuse", lxcRelease: "tumbleweed", lxcVariant: "default", distributionID: "opensuse", packageManager: "zypper", version: "Tumbleweed")
+        case "opensuse-leap":
+            return MainstreamDistroSpec(id: "opensuse-leap", displayName: "openSUSE Leap 15.6", lxcDistro: "opensuse", lxcRelease: "15.6", lxcVariant: "default", distributionID: "opensuse", packageManager: "zypper", version: "15.6")
         case "rocky":
             return MainstreamDistroSpec(id: "rocky", displayName: "Rocky Linux 9", lxcDistro: "rockylinux", lxcRelease: "9", lxcVariant: "default", distributionID: "fedora", packageManager: "dnf", version: "9")
+        case "rocky-8":
+            return MainstreamDistroSpec(id: "rocky-8", displayName: "Rocky Linux 8", lxcDistro: "rockylinux", lxcRelease: "8", lxcVariant: "default", distributionID: "fedora", packageManager: "dnf", version: "8")
         case "almalinux":
             return MainstreamDistroSpec(id: "almalinux", displayName: "AlmaLinux 9", lxcDistro: "almalinux", lxcRelease: "9", lxcVariant: "default", distributionID: "fedora", packageManager: "dnf", version: "9")
+        case "almalinux-8":
+            return MainstreamDistroSpec(id: "almalinux-8", displayName: "AlmaLinux 8", lxcDistro: "almalinux", lxcRelease: "8", lxcVariant: "default", distributionID: "fedora", packageManager: "dnf", version: "8")
         case "centos":
             return MainstreamDistroSpec(id: "centos", displayName: "CentOS Stream 9", lxcDistro: "centos", lxcRelease: "9-Stream", lxcVariant: "default", distributionID: "fedora", packageManager: "dnf", version: "9-Stream")
+        case "oracle":
+            return MainstreamDistroSpec(id: "oracle", displayName: "Oracle Linux 9", lxcDistro: "oracle", lxcRelease: "9", lxcVariant: "default", distributionID: "fedora", packageManager: "dnf", version: "9")
+        case "fedora-41":
+            return MainstreamDistroSpec(id: "fedora-41", displayName: "Fedora 41", lxcDistro: "fedora", lxcRelease: "41", lxcVariant: "default", distributionID: "fedora", packageManager: "dnf", version: "41")
+        case "debian-bookworm":
+            return MainstreamDistroSpec(id: "debian-bookworm", displayName: "Debian 12 (Bookworm)", lxcDistro: "debian", lxcRelease: "bookworm", lxcVariant: "default", distributionID: "debian", packageManager: "apt", version: "12")
+        case "debian-sid":
+            return MainstreamDistroSpec(id: "debian-sid", displayName: "Debian Sid", lxcDistro: "debian", lxcRelease: "sid", lxcVariant: "default", distributionID: "debian", packageManager: "apt", version: "sid")
+        case "ubuntu-jammy":
+            return MainstreamDistroSpec(id: "ubuntu-jammy", displayName: "Ubuntu 22.04 LTS", lxcDistro: "ubuntu", lxcRelease: "jammy", lxcVariant: "default", distributionID: "ubuntu", packageManager: "apt", version: "22.04")
+        case "ubuntu-oracular":
+            return MainstreamDistroSpec(id: "ubuntu-oracular", displayName: "Ubuntu 24.10", lxcDistro: "ubuntu", lxcRelease: "oracular", lxcVariant: "default", distributionID: "ubuntu", packageManager: "apt", version: "24.10")
         case "devuan":
             return MainstreamDistroSpec(id: "devuan", displayName: "Devuan 5 Daedalus", lxcDistro: "devuan", lxcRelease: "daedalus", lxcVariant: "default", distributionID: "debian", packageManager: "apt", version: "5")
         case "gentoo":
             return MainstreamDistroSpec(id: "gentoo", displayName: "Gentoo Linux", lxcDistro: "gentoo", lxcRelease: "current", lxcVariant: "openrc", distributionID: "gentoo", packageManager: "emerge", version: "rolling")
-        case "oracle":
-            return MainstreamDistroSpec(id: "oracle", displayName: "Oracle Linux 9", lxcDistro: "oracle", lxcRelease: "9", lxcVariant: "default", distributionID: "fedora", packageManager: "dnf", version: "9")
+        case "alpine-edge":
+            return MainstreamDistroSpec(id: "alpine-edge", displayName: "Alpine Edge", lxcDistro: "alpine", lxcRelease: "edge", lxcVariant: "default", distributionID: "alpine", packageManager: "apk", version: "edge")
+        case "busybox":
+            return MainstreamDistroSpec(id: "busybox", displayName: "BusyBox Minimal", lxcDistro: "busybox", lxcRelease: "1.36.1", lxcVariant: "default", distributionID: "alpine", packageManager: "sh", version: "1.36.1")
         default:
             return nil
         }
@@ -768,6 +788,57 @@ private final class MainstreamCancellation: @unchecked Sendable {
                 fraction = 1.0
             } catch {
                 failure = error.localizedDescription
+            }
+        }
+    }
+
+    func importFromURL(_ urlString: String, name: String, completion: @escaping (LinuxEnvironment) -> Void) {
+        guard !running, let url = URL(string: urlString.trimmingCharacters(in: .whitespacesAndNewlines)),
+              ["https", "http"].contains(url.scheme?.lowercased() ?? "") else {
+            failure = "Enter a valid http:// or https:// rootfs archive URL."
+            return
+        }
+        running = true; failure = nil; fraction = 0.05; cancellation = MainstreamCancellation()
+        let token = cancellation
+        let label = name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "Custom Linux" : name.trimmingCharacters(in: .whitespacesAndNewlines)
+        message = "Downloading \(label)…"
+        operation = Task {
+            defer { running = false }
+            do {
+                let (downloaded, resp) = try await URLSession.shared.download(from: url)
+                defer { try? FileManager.default.removeItem(at: downloaded) }
+                guard (resp as? HTTPURLResponse)?.statusCode == 200 else {
+                    throw NSError(domain: "L2iOS", code: 5, userInfo: [NSLocalizedDescriptionKey: "Failed to download archive from URL."])
+                }
+                if token.check() { throw CancellationError() }
+                message = "Verifying & importing \(label)…"
+                fraction = 0.5
+                let sha = try DebianInstaller.sha256(downloaded)
+                let root = UUID().uuidString.lowercased()
+                let metadata: [String: String] = [
+                    "distributionID": "debian",
+                    "distribution": label,
+                    "version": "custom",
+                    "packageManager": "sh",
+                    "defaultShell": "/bin/sh"
+                ]
+                try await Task.detached(priority: .utility) {
+                    try LRRuntimeBridge.importVerifiedEnvironment(downloaded, root: root, sha256: sha, metadata: metadata, progress: { value, _ in
+                        Task { @MainActor in self.fraction = 0.5 + value * 0.5 }
+                    }, cancel: { token.check() })
+                }.value
+                var env = LinuxEnvironment(name: label, rootfsName: root)
+                env.distribution = label
+                env.distributionID = "debian"
+                env.packageManager = "sh"
+                env.rootfsVersion = "custom"
+                env.defaultShell = "/bin/sh"
+                env.installationState = "Imported"
+                completion(env)
+                message = "Imported \(label)."
+                fraction = 1.0
+            } catch {
+                failure = (error is CancellationError || token.check()) ? "Cancelled." : error.localizedDescription
             }
         }
     }

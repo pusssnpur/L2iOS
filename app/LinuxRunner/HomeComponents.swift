@@ -384,27 +384,42 @@ struct MiniDesktopArt: View {
 struct CatalogDistribution: Identifiable {
     let id: String, name: String, summary: String, detail: String
     let experimental: Bool
+    let family: String
+    init(id: String, name: String, summary: String, detail: String, experimental: Bool, family: String = "Other") {
+        self.id = id; self.name = name; self.summary = summary; self.detail = detail
+        self.experimental = experimental; self.family = family
+    }
     static let all: [CatalogDistribution] = [
-        .init(id: "debian", name: "Debian 13", summary: "Recommended · APT", detail: "Stable, widest app support, all desktops", experimental: false),
-        .init(id: "ubuntu", name: "Ubuntu 24.04", summary: "APT · Canonical", detail: "Official Ubuntu Base ARM64", experimental: true),
-        .init(id: "arch", name: "Arch Linux ARM", summary: "Rolling · pacman", detail: "Rolling release, X11 & Wayland, KDE Plasma", experimental: false),
-        .init(id: "fedora", name: "Fedora 44", summary: "DNF userspace", detail: "Lightweight desktop and KDE Plasma", experimental: false),
-        .init(id: "opensuse", name: "openSUSE Tumbleweed", summary: "Rolling · zypper", detail: "Official openSUSE ARM64 rolling rootfs", experimental: true),
-        .init(id: "rocky", name: "Rocky Linux 9", summary: "Enterprise · DNF", detail: "RHEL-compatible enterprise ARM64 rootfs", experimental: true),
-        .init(id: "almalinux", name: "AlmaLinux 9", summary: "Enterprise · DNF", detail: "Community-owned RHEL-compatible ARM64", experimental: true),
-        .init(id: "centos", name: "CentOS Stream 9", summary: "Rolling Enterprise · DNF", detail: "Upstream RHEL development branch ARM64", experimental: true),
-        .init(id: "kubuntu", name: "Kubuntu 24.04", summary: "Ubuntu + KDE", detail: "Ubuntu Base with KDE Plasma", experimental: true),
-        .init(id: "xubuntu", name: "Xubuntu 24.04", summary: "Ubuntu + Xfce", detail: "Ubuntu Base with lightweight Xfce", experimental: true),
-        .init(id: "lubuntu", name: "Lubuntu 24.04", summary: "Ubuntu + LXQt", detail: "Ubuntu Base with fast LXQt desktop", experimental: true),
-        .init(id: "pop", name: "Pop!_OS 24.04", summary: "System76 · APT", detail: "Ubuntu base with Pop!_OS repository", experimental: true),
-        .init(id: "zorin", name: "Zorin OS 18", summary: "Windows-like · APT", detail: "Ubuntu base with Zorin OS look", experimental: true),
-        .init(id: "kali", name: "Kali Linux", summary: "Security · APT", detail: "Kali Xfce desktop and security tool sets", experimental: false),
-        .init(id: "void", name: "Void Linux", summary: "Independent · xbps", detail: "Independent rolling release; very light", experimental: true),
-        .init(id: "devuan", name: "Devuan 5", summary: "Init-free · APT", detail: "Debian without systemd (Daedalus ARM64)", experimental: true),
-        .init(id: "gentoo", name: "Gentoo Linux", summary: "Source · Portage", detail: "Gentoo ARM64 OpenRC stage rootfs", experimental: true),
-        .init(id: "oracle", name: "Oracle Linux 9", summary: "Enterprise · DNF", detail: "Oracle Linux 9 ARM64 rootfs", experimental: true),
-        .init(id: "alpine", name: "Alpine 3.24", summary: "Small · APK", detail: "Lightweight musl Linux for terminal", experimental: false),
-        .init(id: "steamos", name: "SteamOS ARM64", summary: "Valve SteamFrame", detail: "Valve ARM64 recovery image (experimental)", experimental: true),
+        .init(id: "debian", name: "Debian 13 (Trixie)", summary: "Recommended · APT", detail: "Stable, widest app support, all desktops", experimental: false, family: "Debian / Ubuntu"),
+        .init(id: "debian-bookworm", name: "Debian 12 (Bookworm)", summary: "LTS · APT", detail: "Previous stable Debian 12 ARM64 rootfs", experimental: true, family: "Debian / Ubuntu"),
+        .init(id: "debian-sid", name: "Debian Sid (Unstable)", summary: "Rolling · APT", detail: "Bleeding-edge Debian unstable ARM64", experimental: true, family: "Debian / Ubuntu"),
+        .init(id: "ubuntu", name: "Ubuntu 24.04 LTS", summary: "APT · Canonical", detail: "Official Ubuntu Base ARM64", experimental: true, family: "Debian / Ubuntu"),
+        .init(id: "ubuntu-jammy", name: "Ubuntu 22.04 LTS", summary: "APT · Jammy", detail: "Ubuntu 22.04 LTS ARM64 rootfs", experimental: true, family: "Debian / Ubuntu"),
+        .init(id: "ubuntu-oracular", name: "Ubuntu 24.10", summary: "APT · Oracular", detail: "Ubuntu 24.10 interim ARM64 release", experimental: true, family: "Debian / Ubuntu"),
+        .init(id: "arch", name: "Arch Linux ARM", summary: "Rolling · pacman", detail: "Rolling release, X11 & Wayland, KDE Plasma", experimental: false, family: "Rolling"),
+        .init(id: "fedora", name: "Fedora 44", summary: "DNF userspace", detail: "Lightweight desktop and KDE Plasma", experimental: false, family: "RHEL / Fedora"),
+        .init(id: "fedora-41", name: "Fedora 41", summary: "DNF · Container", detail: "Official Fedora 41 ARM64 rootfs", experimental: true, family: "RHEL / Fedora"),
+        .init(id: "opensuse", name: "openSUSE Tumbleweed", summary: "Rolling · zypper", detail: "Official openSUSE ARM64 rolling rootfs", experimental: true, family: "Rolling"),
+        .init(id: "opensuse-leap", name: "openSUSE Leap 15.6", summary: "Stable · zypper", detail: "Enterprise-grade openSUSE Leap ARM64", experimental: true, family: "Rolling"),
+        .init(id: "rocky", name: "Rocky Linux 9", summary: "Enterprise · DNF", detail: "RHEL 9 compatible enterprise ARM64", experimental: true, family: "RHEL / Fedora"),
+        .init(id: "rocky-8", name: "Rocky Linux 8", summary: "LTS · DNF", detail: "RHEL 8 compatible enterprise ARM64", experimental: true, family: "RHEL / Fedora"),
+        .init(id: "almalinux", name: "AlmaLinux 9", summary: "Enterprise · DNF", detail: "Community-owned RHEL 9 ARM64", experimental: true, family: "RHEL / Fedora"),
+        .init(id: "almalinux-8", name: "AlmaLinux 8", summary: "LTS · DNF", detail: "Community-owned RHEL 8 ARM64", experimental: true, family: "RHEL / Fedora"),
+        .init(id: "centos", name: "CentOS Stream 9", summary: "Rolling Enterprise · DNF", detail: "Upstream RHEL 9 development ARM64", experimental: true, family: "RHEL / Fedora"),
+        .init(id: "oracle", name: "Oracle Linux 9", summary: "Enterprise · DNF", detail: "Oracle Linux 9 ARM64 rootfs", experimental: true, family: "RHEL / Fedora"),
+        .init(id: "kubuntu", name: "Kubuntu 24.04", summary: "Ubuntu + KDE", detail: "Ubuntu Base with KDE Plasma", experimental: true, family: "Debian / Ubuntu"),
+        .init(id: "xubuntu", name: "Xubuntu 24.04", summary: "Ubuntu + Xfce", detail: "Ubuntu Base with lightweight Xfce", experimental: true, family: "Debian / Ubuntu"),
+        .init(id: "lubuntu", name: "Lubuntu 24.04", summary: "Ubuntu + LXQt", detail: "Ubuntu Base with fast LXQt desktop", experimental: true, family: "Debian / Ubuntu"),
+        .init(id: "pop", name: "Pop!_OS 24.04", summary: "System76 · APT", detail: "Ubuntu base with Pop!_OS repository", experimental: true, family: "Debian / Ubuntu"),
+        .init(id: "zorin", name: "Zorin OS 18", summary: "Windows-like · APT", detail: "Ubuntu base with Zorin OS look", experimental: true, family: "Debian / Ubuntu"),
+        .init(id: "kali", name: "Kali Linux", summary: "Security · APT", detail: "Kali Xfce desktop and security tool sets", experimental: false, family: "Debian / Ubuntu"),
+        .init(id: "devuan", name: "Devuan 5 (Daedalus)", summary: "Init-free · APT", detail: "Debian without systemd ARM64", experimental: true, family: "Debian / Ubuntu"),
+        .init(id: "void", name: "Void Linux", summary: "Independent · xbps", detail: "Independent rolling release; very light", experimental: true, family: "Lightweight"),
+        .init(id: "gentoo", name: "Gentoo Linux", summary: "Source · Portage", detail: "Gentoo ARM64 OpenRC stage rootfs", experimental: true, family: "Rolling"),
+        .init(id: "alpine", name: "Alpine 3.24", summary: "Small · APK", detail: "Lightweight musl Linux for terminal", experimental: false, family: "Lightweight"),
+        .init(id: "alpine-edge", name: "Alpine Edge", summary: "Rolling · APK", detail: "Bleeding-edge Alpine Linux ARM64", experimental: true, family: "Lightweight"),
+        .init(id: "busybox", name: "BusyBox Minimal", summary: "Ultra-Tiny · sh", detail: "Minimalist embedded BusyBox ARM64", experimental: true, family: "Lightweight"),
+        .init(id: "steamos", name: "SteamOS ARM64", summary: "Valve SteamFrame", detail: "Valve ARM64 recovery image (experimental)", experimental: true, family: "Rolling"),
     ]
 }
 
@@ -416,28 +431,29 @@ struct DistroBadge: View {
     private static let cache = NSCache<NSString, UIImage>()
     private var file: String? {
         switch distributionID ?? "alpine" {
-        case "debian": return "debian"
+        case "debian", "debian-bookworm", "debian-sid": return "debian"
         case "arch", "archarm": return "arch"
-        case "fedora": return "fedora"
-        case "ubuntu", "kubuntu", "xubuntu", "lubuntu": return "ubuntu"
+        case "fedora", "fedora-41": return "fedora"
+        case "ubuntu", "ubuntu-jammy", "ubuntu-oracular", "kubuntu", "xubuntu", "lubuntu": return "ubuntu"
         case "kali": return "kali"
         case "steamos": return "steamos"
         case "pop": return "pop"
         case "zorin": return "zorin"
         case "void": return "void"
-        case "opensuse", "opensuse-tumbleweed": return "opensuse"
-        case "alpine": return "alpine"
+        case "opensuse", "opensuse-leap", "opensuse-tumbleweed": return "opensuse"
+        case "alpine", "alpine-edge": return "alpine"
         default: return nil
         }
     }
     private var customBadge: (String, [Color]) {
         switch distributionID ?? "" {
-        case "rocky": return ("mountain.2.fill", [Color(red: 0.08, green: 0.72, blue: 0.48), Color(red: 0.04, green: 0.45, blue: 0.30)])
-        case "almalinux": return ("star.circle.fill", [.blue, .indigo])
+        case "rocky", "rocky-8": return ("mountain.2.fill", [Color(red: 0.08, green: 0.72, blue: 0.48), Color(red: 0.04, green: 0.45, blue: 0.30)])
+        case "almalinux", "almalinux-8": return ("star.circle.fill", [.blue, .indigo])
         case "centos": return ("square.grid.2x2.fill", [.purple, .indigo])
         case "devuan": return ("spiral", [.purple, .pink])
         case "gentoo": return ("sparkles", [.indigo, .purple])
         case "oracle": return ("circle.hexagongrid.fill", [.red, .orange])
+        case "busybox": return ("cube.fill", [.orange, .brown])
         default: return ("shippingbox.fill", [.gray, .secondary])
         }
     }
@@ -1004,7 +1020,7 @@ struct LRNavRow: View {
     let title: String; let subtitle: String?; let symbol: String; let colors: [Color]
     var body: some View {
         HStack(spacing: 12) {
-            LRIconTile(symbol: symbol, colors: colors, size: 32)
+            LRIOSIcon(symbol: symbol, colors: colors, size: 32)
             VStack(alignment: .leading, spacing: 2) {
                 Text(title).font(.subheadline.weight(.semibold)).foregroundColor(.primary)
                 if let subtitle { Text(subtitle).font(.caption).foregroundColor(.secondary).lineLimit(1) }
@@ -1015,3 +1031,405 @@ struct LRNavRow: View {
         .padding(.vertical, 4).contentShape(Rectangle())
     }
 }
+
+// MARK: - L2iOS Power Tools
+
+enum L2iOSCommandRunner {
+    static func packageManager() -> String {
+        switch LRRuntimeBridge.activeDistributionID() ?? "" {
+        case "fedora": return "dnf"
+        case "arch", "archarm": return "pacman"
+        case "alpine": return "apk"
+        case "opensuse": return "zypper"
+        case "void": return "xbps"
+        default: return "apt"
+        }
+    }
+
+    static func installCommand(forPackages pkgs: [String]) -> String {
+        let joined = pkgs.joined(separator: " ")
+        switch packageManager() {
+        case "dnf": return "dnf install -y \(joined)"
+        case "pacman": return "pacman -Sy --noconfirm \(joined)"
+        case "apk": return "apk add --no-cache \(joined)"
+        case "zypper": return "zypper install -y \(joined)"
+        case "xbps": return "xbps-install -Sy \(joined)"
+        default: return "apt-get update && apt-get install -y \(joined)"
+        }
+    }
+
+    static func runInBackground(_ command: String) -> Bool {
+        guard LRRuntimeBridge.isRunning() else { return false }
+        return LRRuntimeBridge.terminal(forCommand: ["/bin/sh", "-c", command], directory: "/root") != nil
+    }
+}
+
+struct DevStacksView: View {
+    @State private var statusMessage: String?
+
+    private struct StackItem: Identifiable {
+        let id: String
+        let title: String
+        let subtitle: String
+        let symbol: String
+        let colors: [Color]
+        let packages: [String]
+    }
+
+    private let stacks: [StackItem] = [
+        .init(id: "python", title: "Python & AI Toolkit", subtitle: "python3, pip, venv, ipython", symbol: "terminal.fill", colors: [.blue, .indigo], packages: ["python3", "python3-pip", "python3-venv"]),
+        .init(id: "node", title: "Node.js & Web Dev", subtitle: "nodejs, npm, git, curl, jq", symbol: "chevron.left.forwardslash.chevron.right", colors: [.green, .teal], packages: ["nodejs", "npm", "git", "curl", "jq"]),
+        .init(id: "cbuild", title: "C / C++ Build Chain", subtitle: "gcc, g++, make, cmake, ninja", symbol: "hammer.fill", colors: [.orange, .red], packages: ["gcc", "g++", "make", "cmake", "ninja-build"]),
+        .init(id: "net", title: "Network & Security Kit", subtitle: "nmap, curl, wget, tcpdump, ssh", symbol: "network", colors: [.purple, .pink], packages: ["nmap", "curl", "wget", "tcpdump", "openssh-client"]),
+        .init(id: "media", title: "Media & FFmpeg Studio", subtitle: "ffmpeg, imagemagick", symbol: "film.fill", colors: [.pink, .orange], packages: ["ffmpeg", "imagemagick"]),
+        .init(id: "shell", title: "Power Shell Pack", subtitle: "tmux, zsh, neovim, htop, ripgrep", symbol: "bolt.fill", colors: [.cyan, .blue], packages: ["tmux", "zsh", "neovim", "htop", "ripgrep"]),
+    ]
+
+    var body: some View {
+        List {
+            if let statusMessage {
+                Section {
+                    Label(statusMessage, systemImage: "checkmark.circle.fill")
+                        .foregroundColor(.green)
+                        .font(.footnote)
+                }
+            }
+            Section {
+                ForEach(stacks) { stack in
+                    let cmd = L2iOSCommandRunner.installCommand(forPackages: stack.packages)
+                    HStack(spacing: 12) {
+                        LRIOSIcon(symbol: stack.symbol, colors: stack.colors, size: 38)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(stack.title).font(.subheadline.weight(.semibold))
+                            Text(stack.subtitle).font(.caption).foregroundColor(.secondary)
+                        }
+                        Spacer()
+                        Button("Install") {
+                            if L2iOSCommandRunner.runInBackground(cmd) {
+                                statusMessage = "Started installing \(stack.title) via \(L2iOSCommandRunner.packageManager())."
+                            } else {
+                                UIPasteboard.general.string = cmd
+                                statusMessage = "Linux is off — copied install command to clipboard."
+                            }
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .buttonBorderShape(.capsule)
+                        .controlSize(.small)
+                    }
+                    .padding(.vertical, 3)
+                    .contextMenu {
+                        Button {
+                            UIPasteboard.general.string = cmd
+                            statusMessage = "Copied: \(cmd)"
+                        } label: { Label("Copy Command", systemImage: "doc.on.doc") }
+                    }
+                }
+            } header: {
+                Text("1-Tap Developer Stacks (\(L2iOSCommandRunner.packageManager().uppercased()))")
+            } footer: {
+                Text("Automatically adapts to your active distribution's package manager. Long-press any stack to copy its command.")
+            }
+        }
+        .listStyle(.insetGrouped)
+        .background(LRAmbientGlassBackdrop())
+        .navigationTitle("Dev Stacks")
+    }
+}
+
+struct ServicesManagerView: View {
+    @State private var feedback: String?
+    @State private var httpPort = "8080"
+    @State private var sshPort = "2222"
+
+    var body: some View {
+        List {
+            if let feedback {
+                Section { Label(feedback, systemImage: "bolt.fill").foregroundColor(.accentColor).font(.footnote) }
+            }
+            Section("Quick Servers") {
+                HStack {
+                    LRIOSIcon(symbol: "globe", colors: [.blue, .cyan], size: 32)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("HTTP Static File Server").font(.subheadline.weight(.semibold))
+                        Text("Serves /root on port \(httpPort)").font(.caption).foregroundColor(.secondary)
+                    }
+                    Spacer()
+                    Button("Start") {
+                        let ok = L2iOSCommandRunner.runInBackground("python3 -m http.server \(httpPort) --directory /root >/tmp/l2ios-http.log 2>&1 &")
+                        feedback = ok ? "HTTP server started on 0.0.0.0:\(httpPort)." : "Boot Linux first."
+                    }
+                    .buttonStyle(.borderedProminent).buttonBorderShape(.capsule).controlSize(.small)
+                }
+
+                HStack {
+                    LRIOSIcon(symbol: "lock.shield.fill", colors: [.indigo, .purple], size: 32)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("OpenSSH Server").font(.subheadline.weight(.semibold))
+                        Text("Listens on port \(sshPort)").font(.caption).foregroundColor(.secondary)
+                    }
+                    Spacer()
+                    Button("Start") {
+                        let ok = L2iOSCommandRunner.runInBackground("mkdir -p /run/sshd && ssh-keygen -A && /usr/sbin/sshd -p \(sshPort) >/tmp/l2ios-sshd.log 2>&1 &")
+                        feedback = ok ? "SSH daemon launch requested on port \(sshPort)." : "Boot Linux first."
+                    }
+                    .buttonStyle(.bordered).buttonBorderShape(.capsule).controlSize(.small)
+                }
+            }
+
+            Section("System Maintenance") {
+                Button {
+                    let pm = L2iOSCommandRunner.packageManager()
+                    let cmd = pm == "apt" ? "apt-get update && apt-get upgrade -y" : pm == "dnf" ? "dnf upgrade -y" : pm == "pacman" ? "pacman -Syu --noconfirm" : pm == "apk" ? "apk upgrade" : "zypper dup -y"
+                    let ok = L2iOSCommandRunner.runInBackground(cmd)
+                    feedback = ok ? "Running full system upgrade (\(pm)) in background." : "Boot Linux first."
+                } label: {
+                    SettingsLabel("Upgrade All Packages", "arrow.up.circle.fill", .green)
+                }
+
+                Button(role: .destructive) {
+                    let ok = L2iOSCommandRunner.runInBackground("pkill -f 'http.server' || true; pkill sshd || true")
+                    feedback = ok ? "Stopped background HTTP/SSH servers." : "Boot Linux first."
+                } label: {
+                    SettingsLabel("Stop Background Servers", "stop.circle.fill", .red)
+                }
+            }
+        }
+        .listStyle(.insetGrouped)
+        .background(LRAmbientGlassBackdrop())
+        .navigationTitle("Services & Servers")
+    }
+}
+
+struct NetworkToolsView: View {
+    @State private var hostToPing = "1.1.1.1"
+    @State private var output = "Tap an action below to inspect network status."
+    @State private var localIPs: [String] = []
+
+    var body: some View {
+        List {
+            Section("Device Interfaces") {
+                if localIPs.isEmpty {
+                    Text("No active Wi-Fi/Cellular IPv4 addresses detected.").font(.caption).foregroundColor(.secondary)
+                } else {
+                    ForEach(localIPs, id: \.self) { ip in
+                        HStack {
+                            Text(ip).font(.system(.subheadline, design: .monospaced))
+                            Spacer()
+                            Button { UIPasteboard.general.string = ip } label: { Image(systemName: "doc.on.doc") }
+                        }
+                    }
+                }
+                Button("Refresh Interfaces") { refreshIPs() }
+            }
+
+            Section("Guest Network Probe") {
+                TextField("Host or IP", text: $hostToPing)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+                Button("Ping Host (3 packets)") {
+                    runProbe("ping -c 3 \(hostToPing) 2>&1 || echo 'ping unavailable'")
+                }
+                Button("Check Public IP") {
+                    runProbe("curl -s https://api.ipify.org || wget -qO- https://api.ipify.org")
+                }
+                Button("Show Listening Ports") {
+                    runProbe("ss -tulpn 2>&1 || netstat -tulpn 2>&1 || cat /proc/net/tcp")
+                }
+            }
+
+            Section("Output") {
+                Text(output)
+                    .font(.system(.caption, design: .monospaced))
+                    .textSelection(.enabled)
+            }
+        }
+        .listStyle(.insetGrouped)
+        .background(LRAmbientGlassBackdrop())
+        .navigationTitle("Network & Ports")
+        .onAppear { refreshIPs() }
+    }
+
+    private func runProbe(_ cmd: String) {
+        guard LRRuntimeBridge.isRunning() else {
+            output = "Start Linux first to run guest network probes."
+            return
+        }
+        let logPath = LRRuntimeBridge.exchangeURL(LRRuntimeBridge.activeRootName()).appendingPathComponent(".linuxrunner/net-probe.txt")
+        let wrapped = "\(cmd) > /mnt/LinuxRunnerShared/../.linuxrunner/net-probe.txt 2>&1 || (\(cmd)) > /tmp/l2ios-net.txt 2>&1"
+        _ = L2iOSCommandRunner.runInBackground(wrapped)
+        output = "Running: \(cmd)…"
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.8) {
+            let text = LRRuntimeBridge.boundedDiagnosticTail(logPath, maxBytes: 8192)
+            output = text.isEmpty ? "Probe queued. Check Terminal or try again in a moment." : text
+        }
+    }
+
+    private func refreshIPs() {
+        var ips: [String] = []
+        var ifaddr: UnsafeMutablePointer<ifaddrs>?
+        if getifaddrs(&ifaddr) == 0 {
+            var ptr = ifaddr
+            while ptr != nil {
+                defer { ptr = ptr?.pointee.ifa_next }
+                guard let interface = ptr?.pointee, let addr = interface.ifa_addr else { continue }
+                if addr.pointee.sa_family == UInt8(AF_INET) {
+                    let name = String(cString: interface.ifa_name)
+                    if name != "lo0" {
+                        var hostname = [CChar](repeating: 0, count: Int(NI_MAXHOST))
+                        getnameinfo(addr, socklen_t(addr.pointee.sa_len), &hostname, socklen_t(hostname.count), nil, 0, NI_NUMERICHOST)
+                        let ip = String(cString: hostname)
+                        if !ip.isEmpty { ips.append("\(name): \(ip)") }
+                    }
+                }
+            }
+            freeifaddrs(ifaddr)
+        }
+        localIPs = ips
+    }
+}
+
+struct ShellProfileView: View {
+    @State private var envKey = ""
+    @State private var envValue = ""
+    @State private var profilePreview = ""
+    @State private var status: String?
+
+    private var profileURL: URL {
+        LRRuntimeBridge.rootURL(LRRuntimeBridge.activeRootName()).appendingPathComponent("root/.profile")
+    }
+
+    var body: some View {
+        List {
+            if let status {
+                Section { Label(status, systemImage: "checkmark.circle.fill").foregroundColor(.green).font(.footnote) }
+            }
+            Section("Add Export Variable") {
+                TextField("Variable name (e.g. EDITOR)", text: $envKey)
+                    .textInputAutocapitalization(.characters)
+                    .autocorrectionDisabled()
+                TextField("Value (e.g. nvim)", text: $envValue)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+                Button("Append to ~/.profile") {
+                    let k = envKey.trimmingCharacters(in: .whitespacesAndNewlines)
+                    let v = envValue.trimmingCharacters(in: .whitespacesAndNewlines)
+                    guard !k.isEmpty, !v.isEmpty else { return }
+                    let line = "\nexport \(k)=\"\(v)\"\n"
+                    if let existing = try? String(contentsOf: profileURL, encoding: .utf8) {
+                        try? (existing + line).write(to: profileURL, atomically: true, encoding: .utf8)
+                    } else {
+                        try? line.write(to: profileURL, atomically: true, encoding: .utf8)
+                    }
+                    envKey = ""; envValue = ""
+                    status = "Saved export \(k) to ~/.profile"
+                    reload()
+                }
+                .disabled(envKey.trimmingCharacters(in: .whitespaces).isEmpty)
+            }
+
+            Section("Current ~/.profile") {
+                Text(profilePreview.isEmpty ? "(Empty or not created yet)" : profilePreview)
+                    .font(.system(.caption, design: .monospaced))
+                    .textSelection(.enabled)
+            }
+        }
+        .listStyle(.insetGrouped)
+        .background(LRAmbientGlassBackdrop())
+        .navigationTitle("Shell & Env")
+        .onAppear { reload() }
+    }
+
+    private func reload() {
+        profilePreview = (try? String(contentsOf: profileURL, encoding: .utf8)) ?? ""
+    }
+}
+
+struct ClipboardBridgeView: View {
+    @State private var text = ""
+    @State private var status: String?
+
+    private var sharedClipboardURL: URL {
+        LRRuntimeBridge.exchangeURL(LRRuntimeBridge.activeRootName()).appendingPathComponent("ios_clipboard.txt")
+    }
+
+    var body: some View {
+        List {
+            if let status {
+                Section { Label(status, systemImage: "checkmark.circle.fill").foregroundColor(.green).font(.footnote) }
+            }
+            Section("iOS → Linux") {
+                Button {
+                    let clip = UIPasteboard.general.string ?? ""
+                    try? clip.write(to: sharedClipboardURL, atomically: true, encoding: .utf8)
+                    text = clip
+                    status = "Wrote \(clip.count) chars to ~/Shared/ios_clipboard.txt"
+                } label: {
+                    SettingsLabel("Send iOS Clipboard to Linux", "arrow.down.doc.fill", .blue)
+                }
+            }
+            Section("Linux → iOS") {
+                Button {
+                    let clip = (try? String(contentsOf: sharedClipboardURL, encoding: .utf8)) ?? ""
+                    UIPasteboard.general.string = clip
+                    text = clip
+                    status = "Copied \(clip.count) chars from ~/Shared/ios_clipboard.txt"
+                } label: {
+                    SettingsLabel("Pull Linux Clipboard to iOS", "arrow.up.doc.fill", .green)
+                }
+            }
+            Section("Bridge Content (~/Shared/ios_clipboard.txt)") {
+                TextEditor(text: $text)
+                    .frame(minHeight: 120)
+                    .font(.system(.caption, design: .monospaced))
+                Button("Save Edited Text") {
+                    try? text.write(to: sharedClipboardURL, atomically: true, encoding: .utf8)
+                    status = "Saved to ~/Shared/ios_clipboard.txt"
+                }
+            }
+        }
+        .listStyle(.insetGrouped)
+        .background(LRAmbientGlassBackdrop())
+        .navigationTitle("Clipboard Bridge")
+        .onAppear { text = (try? String(contentsOf: sharedClipboardURL, encoding: .utf8)) ?? "" }
+    }
+}
+
+struct SystemCleanerView: View {
+    @State private var status: String?
+
+    var body: some View {
+        List {
+            if let status {
+                Section { Label(status, systemImage: "sparkles").foregroundColor(.green).font(.footnote) }
+            }
+            Section("Quick Cleanup") {
+                Button {
+                    let cache = LRRuntimeBridge.managedStorageURL().appendingPathComponent("downloads")
+                    try? FileManager.default.removeItem(at: cache)
+                    status = "Cleared installer download cache."
+                } label: {
+                    SettingsLabel("Clear Installer Download Cache", "trash.fill", .orange)
+                }
+
+                Button {
+                    let ok = L2iOSCommandRunner.runInBackground("rm -rf /tmp/* /var/cache/apt/archives/*.deb /var/cache/dnf/* /var/cache/pacman/pkg/* 2>/dev/null || true")
+                    status = ok ? "Cleaned guest /tmp and package caches." : "Boot Linux first to clean guest caches."
+                } label: {
+                    SettingsLabel("Clean Guest /tmp & Package Cache", "sparkles", .purple)
+                }
+
+                Button(role: .destructive) {
+                    let diag = LRRuntimeBridge.managedStorageURL().deletingLastPathComponent().appendingPathComponent("LinuxRunnerDiagnostics")
+                    try? FileManager.default.removeItem(at: diag)
+                    status = "Cleared diagnostic & crash logs."
+                } label: {
+                    SettingsLabel("Clear Crash & Diagnostic Logs", "bolt.shield.fill", .red)
+                }
+            }
+        }
+        .listStyle(.insetGrouped)
+        .background(LRAmbientGlassBackdrop())
+        .navigationTitle("System Cleaner")
+    }
+}
+
